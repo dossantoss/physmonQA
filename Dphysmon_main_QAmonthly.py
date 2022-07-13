@@ -2,7 +2,7 @@
 """
 physmonQA.py
 Created June 17, 2022
-OPERATES on physmon_main DATABASE
+OPERATES on physmon_data DATABASE and picks a subset of main tables
 GRAPHS MONTHLY AVERAGES
 -Pick the variables to graph via drop down menu
 -Pick the time span of the graph (1m,6m,1yr,5yr,max) via radio buttons
@@ -24,6 +24,7 @@ from mysql.connector import Error
 from datetime import datetime, timedelta
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
+from scipy.stats import sem
 
 
 
@@ -34,13 +35,13 @@ app = dash.Dash(__name__, external_stylesheets=external_stylesheets)
 ################## Database Connection - measure_st - get a list of source tables
 try:
     mydb = mysql.connector.connect(host= 'localhost',
-                                          database= 'physmon_main',
+                                          database= 'physmon_data',
                                           user= 'root',
                                           password= 'lasper08767')        
     #declare cursor to interact w/DB
     mycursor=mydb.cursor()
     #declare a querry
-    myquery = "(SELECT source_table, datum1 from measure_st where writable=1)"
+    myquery = "(SELECT source_table, datum1 from measure_st where writable=1 and main=1)"
     #execute the cursor
     mycursor.execute(myquery)
     #Fetch records and covert into a data frame (df)
@@ -258,37 +259,63 @@ def fmonth_stats(dfphysmon_stats):
     dfnov = dfphysmon_stats[dfphysmon_stats['month']==11]
     dfdec = dfphysmon_stats[dfphysmon_stats['month']==12]
     
+  
+    
     #For each month type calculate the mean of the month stats
     #i.e. The mean of all Januaries, Februaries ...
-    jan_mean = dfjan['month_stats'].mean()
+    jan_mean = dfjan['month_stats'].mean() 
+    jan_serr = sem(dfjan['month_stats'].astype('int'))
+    
     feb_mean = dffeb['month_stats'].mean()
+    feb_serr = sem(dffeb['month_stats'].astype('int'))
+    
     mar_mean = dfmar['month_stats'].mean()
+    mar_serr = sem(dfmar['month_stats'].astype('int'))
+    
     apr_mean = dfapr['month_stats'].mean()
+    apr_serr = sem(dfapr['month_stats'].astype('int'))
+    
     may_mean = dfmay['month_stats'].mean()
+    may_serr = sem(dfmay['month_stats'].astype('int'))
+    
     jun_mean = dfjun['month_stats'].mean()
+    jun_serr = sem(dfjun['month_stats'].astype('int'))
+    
     jul_mean = dfjul['month_stats'].mean()
+    jul_serr = sem(dfjul['month_stats'].astype('int'))
+    
     aug_mean = dfaug['month_stats'].mean()
+    aug_serr = sem(dfaug['month_stats'].astype('int'))
+    
     sep_mean = dfsep['month_stats'].mean()
+    sep_serr = sem(dfsep['month_stats'].astype('int'))
+    
     oct_mean = dfoct['month_stats'].mean()
+    oct_serr = sem(dfoct['month_stats'].astype('int'))
+    
     nov_mean = dfnov['month_stats'].mean()
+    nov_serr = sem(dfnov['month_stats'].astype('int'))
+    
     dec_mean = dfdec['month_stats'].mean()
+    dec_serr = sem(dfdec['month_stats'].astype('int'))
+    
     
     #Append the means of the monthly statistics to a dataframe
-    dflongterm_stats =pd.DataFrame({'month':[1], 'month_stats': [jan_mean]})
-    dflongterm_stats = dflongterm_stats.append({'month':2, 'month_stats':feb_mean}, ignore_index=True)
-    dflongterm_stats = dflongterm_stats.append({'month':3, 'month_stats':mar_mean}, ignore_index=True)
-    dflongterm_stats = dflongterm_stats.append({'month':4, 'month_stats':apr_mean}, ignore_index=True)
-    dflongterm_stats = dflongterm_stats.append({'month':5, 'month_stats':may_mean}, ignore_index=True)
-    dflongterm_stats = dflongterm_stats.append({'month':6, 'month_stats':jun_mean}, ignore_index=True)
-    dflongterm_stats = dflongterm_stats.append({'month':7, 'month_stats':jul_mean}, ignore_index=True)
-    dflongterm_stats = dflongterm_stats.append({'month':8, 'month_stats':aug_mean}, ignore_index=True)
-    dflongterm_stats = dflongterm_stats.append({'month':9, 'month_stats':sep_mean}, ignore_index=True)
-    dflongterm_stats = dflongterm_stats.append({'month':10, 'month_stats':oct_mean},ignore_index=True)
-    dflongterm_stats = dflongterm_stats.append({'month':11, 'month_stats':nov_mean},ignore_index=True)
-    dflongterm_stats = dflongterm_stats.append({'month':12, 'month_stats':dec_mean},ignore_index=True)
+    dflongterm_stats =pd.DataFrame({'month':[1], 'month_stats': [jan_mean], 'stderr':[jan_serr]})
+    dflongterm_stats = dflongterm_stats.append({'month':2, 'month_stats':feb_mean, 'stderr': feb_serr}, ignore_index=True)
+    dflongterm_stats = dflongterm_stats.append({'month':3, 'month_stats':mar_mean, 'stderr': mar_serr}, ignore_index=True)
+    dflongterm_stats = dflongterm_stats.append({'month':4, 'month_stats':apr_mean, 'stderr': apr_serr}, ignore_index=True)
+    dflongterm_stats = dflongterm_stats.append({'month':5, 'month_stats':may_mean, 'stderr': may_serr}, ignore_index=True)
+    dflongterm_stats = dflongterm_stats.append({'month':6, 'month_stats':jun_mean, 'stderr': jun_serr}, ignore_index=True)
+    dflongterm_stats = dflongterm_stats.append({'month':7, 'month_stats':jul_mean, 'stderr': jul_serr}, ignore_index=True)
+    dflongterm_stats = dflongterm_stats.append({'month':8, 'month_stats':aug_mean, 'stderr': aug_serr}, ignore_index=True)
+    dflongterm_stats = dflongterm_stats.append({'month':9, 'month_stats':sep_mean, 'stderr': sep_serr}, ignore_index=True)
+    dflongterm_stats = dflongterm_stats.append({'month':10, 'month_stats':oct_mean,'stderr': oct_serr}, ignore_index=True)
+    dflongterm_stats = dflongterm_stats.append({'month':11, 'month_stats':nov_mean,'stderr': nov_serr},ignore_index=True)
+    dflongterm_stats = dflongterm_stats.append({'month':12, 'month_stats':dec_mean,'stderr':dec_serr},ignore_index=True)
     
     #pd.set_option('display.max_rows', None)
-    #print(dflongterm_stats)
+    print(dflongterm_stats)
     return(dflongterm_stats)
     
     
@@ -296,7 +323,7 @@ def fmonth_stats(dfphysmon_stats):
 ####################### Web graphics here....##################################
 # 1 drop-down menu window
 app.layout = html.Div([  
-   html.P(html.B("OPERATES ON physmon_main DB" ,style={'color': 'red', 'fontSize': 10})),          
+   html.P(html.B("OPERATES ON physmon_data DB main tables" ,style={'color': 'red', 'fontSize': 10})),          
    html.Div([   
         dcc.Dropdown(
             id='yaxis-series',
@@ -359,7 +386,7 @@ def update_figure(yaxis_series, del_option, range_option, xaxis_timespan):
     ################## Database Connection - select ......
     try:
        mydb = mysql.connector.connect(host= 'localhost',
-                                          database= 'physmon_main',
+                                          database= 'physmon_data',
                                           user= 'root',
                                           password= 'lasper08767')        
        #declare cursor to interact w/DB
@@ -467,7 +494,7 @@ def update_figure(yaxis_series):
     ################## Database Connection - select ......
     try:
        mydb = mysql.connector.connect(host= 'localhost',
-                                          database= 'physmon_main',
+                                          database= 'physmon_data',
                                           user= 'root',
                                           password= 'lasper08767')        
        #declare cursor to interact w/DB

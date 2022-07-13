@@ -16,7 +16,7 @@ import pandas as pd
 ##Database Connection-measure_st - get a list of source tables
 try:
     mydb = mysql.connector.connect(host= 'localhost',
-                                          database= 'physmon_main',
+                                          database= 'physmon_data',
                                           user= 'root',
                                           password= 'lasper08767')        
     #declare cursor to interact w/DB
@@ -44,7 +44,7 @@ for i in df.index:
     
     try:
         mydb = mysql.connector.connect(host= 'localhost',
-                                              database= 'physmon_main',
+                                              database= 'physmon_data',
                                               user= 'root',
                                               password= 'lasper08767')        
         #declare cursor to interact w/DB
