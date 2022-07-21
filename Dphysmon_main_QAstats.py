@@ -83,36 +83,51 @@ app.layout = html.Div([
                     value='metpark_crane25m_at'
                     ),
               
-                 html.Div('Filter DEL:', style={'color': 'blue', 'fontSize': 12}),
+                 html.Div('Stats & Graph DEL Filter:', style={'color': 'blue', 'fontSize': 12}),
                  dcc.RadioItems(
                     id='filter-del',
                     options=[{'label': i, 'value': i} for i in ['filter del', 'no filter']],
                     value='filter del',
                     labelStyle={'display': 'inline-block'}
                     ),
-              
+                 html.Div('Graph RANGE Filter:', style={'color': 'blue', 'fontSize': 12}),
+                 dcc.RadioItems(
+                     id='range_option',          
+                     options=[{'label': i, 'value':i} for i in ['filter-range', 'no filter']],
+                     value='no filter',
+                     labelStyle={'display': 'inline-block'}
+                 ),         
                  html.Div('Calculate Stats for QA routines:', style={'color': 'blue', 'fontSize': 12}),
                  dcc.RadioItems(
                     id='QA',
-                    options=[{'label': i, 'value': i} for i in ['range', 'rolling median']],
+                    options=[{'label': i, 'value': i} for i in ['range']],
                     value='range',
                     labelStyle={'display': 'inline-block'}
                     )
    ],style={'width': '50%', 'display': 'inline-block'}), 
-   html.P(html.B("For Range:Annotate DB with RANGE fail (2) for values outside the L90PCT_fence and H90PCT_fence")),
-   html.P(html.B("For Rolling Median:Annotate DB with STEP fail for values with rmdiff > H90PCT_fence")),
+   html.P(html.B("Normal Distribution: Annotate DB with RANGE FAIL (-1) for values outside the L90PCT_fence and H90PCT_fence")),
+   html.P(html.B("Skewed Distribution: Annotate DB with RANGE FAIL (-2) for values outside LIQR_fence and HIQR_fence")),
    html.Table([
-        html.Tr([html.Td('Min'),     html.Td('Max'),     html.Td('10th pct'), html.Td('25th pct'), html.Td('75th pct'), html.Td('90th pct'), html.Td('Median'),   html.Td('LIQR_fence'), html.Td('HIQR_fence'), html.Td(html.B('L90PCT_fence')), html.Td(html.B('H90PCT_fence'))]),  
+        html.Tr([html.Td('Min'),     html.Td('Max'),     html.Td('10th pct'), html.Td('25th pct'), html.Td('75th pct'), html.Td('90th pct'), html.Td('Median'),   html.Td('LIQR_fence', style={'color':'red'}), html.Td('HIQR_fence',style={'color':'red'}), html.Td(html.B('L90PCT_fence')), html.Td(html.B('H90PCT_fence'))]),  
         html.Tr([html.Td(id='mini'), html.Td(id='maxi'), html.Td(id='pct10'), html.Td(id='pct25'), html.Td(id='pct75'), html.Td(id='pct90'), html.Td(id='median'),html.Td(id='LIQR'),    html.Td(id='HIQR'),    html.Td(id='LPCT'),      html.Td(id='HPCT')   ]),
     ]),
    dcc.Graph(id='physmon-graph'),
-   dcc.Graph(id='physmon-distribution')  
+   dcc.Graph(id='physmon-distribution'),
+   
+   html.P(html.B("Max/Min values from select w/range filter.",style={'color': 'blue', 'fontSize': 12})),
+   html.Table([
+        html.Tr([html.Td('Min'),     html.Td('Max')]),  
+        html.Tr([html.Td(id='miniR'), html.Td(id='maxiR'), html.Td(id='tblID')]),
+    ]),
 ])
 
 
-#Callback for statistics tab
+####### Callback for statistics calculations ##################################
 @app.callback(
-    [Output('mini', 'children'),
+    [Output('miniR', 'children'),
+     Output('maxiR', 'children'),
+     Output('tblID', 'children'),
+     Output('mini', 'children'),
      Output('maxi', 'children'),
      Output('pct10', 'children'),
      Output('pct25', 'children'),
@@ -124,10 +139,9 @@ app.layout = html.Div([
      Output('LPCT',  'children'),
      Output('HPCT',  'children')],
    [Input('yaxis-series', 'value'),
-    Input('QA', 'value'),
     Input('filter-del', 'value')])
 
-def render_content(yaxis_series, qa_routine, qa_filter):   
+def render_content(yaxis_series, qa_filter):   
    ################## Database Connection - select ......
    try:
         mydb = mysql.connector.connect(host= 'localhost',
@@ -148,37 +162,43 @@ def render_content(yaxis_series, qa_routine, qa_filter):
         strdatum = str(my_datumlist[0]) #the datum
         strtable = str(yaxis_series)    #the table_name for to graph   
              
-        ########## Calculate Rolling Median STATS ############
-        if qa_routine=='rolling median':
-                #Act on filtering DEL or not
-                if qa_filter == 'filter del':
-                    mytbquery = "(SELECT rmdiff from " + strtable + " where del!=1)"
-                    mycursor.execute(mytbquery)
-                else: 
-                    mytbquery = "(SELECT rmdiff  from " + strtable + ")"
-                    mycursor.execute(mytbquery)
-                                    
-                #rmdiff values placed inside a dataframe
-                dfrm=pd.DataFrame(mycursor.fetchall(), columns=["rmdiff"])
-                fseries = dfrm["rmdiff"].astype(float)
-                #########Call pct_function to calculates statistics###########    
-                (mini, maxi, pct10, pct25, pct75, pct90, median) = pct_function(fseries)
-                 
-        else: 
-                ########## Calculate RANGE STATS ############
-                if qa_filter == 'filter del':   
-                   mytbquery = "(SELECT " + strdatum + " from " + strtable + " where del!=1)"
-                   mycursor.execute(mytbquery)
-                else:
-                   mytbquery = "(SELECT " + strdatum + " from " + strtable + ")"
-                   mycursor.execute(mytbquery)
+       
+        ########## Calculate RANGE STATS ############
+        if qa_filter == 'filter del':   
+             mytbquery = "(SELECT " + strdatum + " from " + strtable + " where del!=1)"
+             mycursor.execute(mytbquery)
+        else:
+             mytbquery = "(SELECT " + strdatum + " from " + strtable + ")"
+             mycursor.execute(mytbquery)
                    
-                #series values placed inside a dataframe
-                dfdatum=pd.DataFrame(mycursor.fetchall(), columns=[strdatum])
-                fseries = dfdatum[strdatum].astype(float)                
-                #########Call pct_function to calculates statistics###########
-                (mini, maxi, pct10, pct25, pct75, pct90, median) = pct_function(fseries) 
-                
+        #series values placed inside a dataframe
+        dfdatum=pd.DataFrame(mycursor.fetchall(), columns=[strdatum])
+        fseries = dfdatum[strdatum].astype(float)                
+        #########Call pct_function to calculates statistics###########
+        (mini, maxi, pct10, pct25, pct75, pct90, median) = pct_function(fseries) 
+        
+        
+        ########## Calculate Max/Min from select w/Range filter
+        tblID = strtable
+        if strdatum == "ra":
+            mytbquery = "(SELECT " +strdatum+ " from " +strtable+ " where del!=1)"
+            mycursor.execute(mytbquery)
+            dfseries=pd.DataFrame(mycursor.fetchall(), columns=[strdatum]) 
+            fseries=dfseries[strdatum].astype(float)
+            miniR = np.min(fseries)
+            maxiR = np.max(fseries)
+            
+        else:    
+            mytbquery = "(SELECT " +strdatum+ " from " +strtable+ " where del!=1 and idqa_range>0)"
+            mycursor.execute(mytbquery)
+            dfseries=pd.DataFrame(mycursor.fetchall(), columns=[strdatum]) 
+            fseries=dfseries[strdatum].astype(float)
+            miniR = np.min(fseries)
+            maxiR = np.max(fseries)
+            
+            
+        
+        
         #IQR fences
         LIQR = pct25 - (1.5 * abs(pct75-pct25))
         HIQR = pct75 + (1.5 * abs(pct75-pct25))
@@ -201,18 +221,18 @@ def render_content(yaxis_series, qa_routine, qa_filter):
            mydb.close()
            print("MySQL connection for stats closed")               
 
-   return mini, maxi, pct10, pct25, pct75, pct90, median, LIQR, HIQR, LPCT, HPCT
+   return miniR, maxiR, tblID, mini, maxi, pct10, pct25, pct75, pct90, median, LIQR, HIQR, LPCT, HPCT
 
 
 #callback for graph - aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa       
 @app.callback(
     Output('physmon-graph', 'figure'),
     [Input('yaxis-series', 'value'),
-     Input('QA', 'value'),
+     Input('range_option', 'value'),
      Input('filter-del', 'value')])
 
 #Values passed by the order listed on callback         
-def update_figure(yaxis_series, qa_routine, qa_filter): 
+def update_figure(yaxis_series, qa_range, qa_filter): 
 
     ################## Database Connection - select ......
     try:
@@ -235,31 +255,27 @@ def update_figure(yaxis_series, qa_routine, qa_filter):
        strtable = str(yaxis_series)    #the table_name for to graph   
         
        
-       ######### Select rmdiff data to graph ############
-       if qa_routine=='rolling median':
-          mytbquery = "(SELECT date_t, rmdiff from " + strtable + " where del!=1)"
-          mycursor.execute(mytbquery)
-          #Build a data frame with the returned values
-          dfphysmon=pd.DataFrame(mycursor.fetchall(), columns=['date_t', 'rmdiff']) 
-          #The y-axis series
-          my_series=dfphysmon['rmdiff']
-          my_title='rmdiff'
-            
-       else:            
        ######### Select data series values 
-            if qa_filter == 'filter del':
-                 mytbquery = "(SELECT date_t, " + strdatum + " from " + strtable + " where del!=1)"               
-            else:
+       if qa_filter == 'filter del' and qa_range == 'filter-range':
+                mytbquery = "(SELECT date_t, " + strdatum + " from " + strtable + " where del!=1 and idqa_range >=0)"  
+                 
+       elif qa_filter == 'filter del' and qa_range == 'no filter':
+                mytbquery = "(SELECT date_t, " + strdatum + " from " + strtable + " where del!=1)"
+                
+       elif qa_filter == 'no filter' and qa_range == 'filter-range':
+                mytbquery = "(SELECT date_t, " + strdatum + " from " + strtable + " where idqa_range >=0)" 
+       else:
                 mytbquery = "(SELECT date_t, " + strdatum + " from " + strtable + ")"
+           
           
-            #execute the cursor for select data series option
-            mycursor.execute(mytbquery)
-            #Build a data frame with the returned values
-            dfphysmon=pd.DataFrame(mycursor.fetchall(), columns=['date_t', strdatum])  
-            #The y-axis series
-            my_series=dfphysmon[strdatum]
-            my_title=strdatum
-            #print(dfphysmon)
+       #execute the cursor for select data series option
+       mycursor.execute(mytbquery)
+       #Build a data frame with the returned values
+       dfphysmon=pd.DataFrame(mycursor.fetchall(), columns=['date_t', strdatum])  
+       #The y-axis series
+       my_series=dfphysmon[strdatum]
+       my_title=strdatum
+       #print(dfphysmon)
     
     except mysql.connector.Error as error:
        print("Failed to get record from MySQL table: {}".format(error))
